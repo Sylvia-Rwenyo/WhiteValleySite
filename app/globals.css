@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #3f7d4f;
+  --color-brand-green-dark: #2d5c39;
+  --color-brand-orange: #e8862e;
+  --color-brand-cream: #fdfaf3;
+  --color-brand-darkGrey: #333333;
+
+  --font-script: "Dancing Script", cursive;
+}
