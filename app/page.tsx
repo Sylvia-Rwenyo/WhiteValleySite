@@ -34,6 +34,7 @@ interface CartItem extends Flower {
 export default function Home({ cartCount = 0 }: { cartCount?: number }) {
   const [flowers, setFlowers] = useState<Flower[]>([]);
   const [selectedFlower, setSelectedFlower] = useState<Flower | null>(null);
+  const [expandedFlowerIds, setExpandedFlowerIds] = useState<number[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [addedId, setAddedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isCategoryOpenMobile, setIsCategoryOpenMobile] = useState<boolean>(false);
 
-  // Phone number for WhatsApp inquiry
   const WHATSAPP_PHONE = "+254723105303";
 
   useEffect(() => {
@@ -50,9 +50,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
       try {
         const res = await fetch("https://whitevalley.co.ke/api/get_flowers.php", {
           method: "GET",
-          headers: {
-            "Accept": "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
 
         const contentType = res.headers.get("content-type");
@@ -75,7 +73,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     fetchFlowers();
   }, []);
 
-  // Extract unique categories dynamically
   const categories = ["All", ...Array.from(new Set(flowers.map((f) => f.category).filter(Boolean)))];
 
   const addToCart = (flower: Flower, e?: React.MouseEvent) => {
@@ -112,6 +109,22 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Dedicated Toggle Handler for 'i' Info Button
+  const toggleInfo = (flower: Flower, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Set selected for desktop detailed sidebar preview
+    setSelectedFlower(flower);
+
+    // Toggle inline text view for all screen sizes
+    setExpandedFlowerIds((prev) =>
+      prev.includes(flower.id)
+        ? prev.filter((id) => id !== flower.id)
+        : [...prev, flower.id]
+    );
+  };
+
   const filteredFlowers = flowers.filter((f) => {
     const query = searchQuery.toLowerCase();
     const nameMatch = f.name?.toLowerCase().includes(query);
@@ -128,7 +141,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Generate WhatsApp Message with product details and price/order inquiry
   const handleWhatsAppOrder = () => {
     if (cart.length === 0) return;
 
@@ -143,7 +155,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`, "_blank");
   };
 
-  // Shared Cart Component
   const CartBox = () => (
     <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-md transition-all">
       <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
@@ -206,7 +217,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           ))}
 
-          {/* WhatsApp Order Button */}
           <button
             onClick={handleWhatsAppOrder}
             className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
@@ -218,7 +228,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     </div>
   );
 
-  // Shared Categories Component
   const CategoriesList = () => (
     <div className="space-y-2">
       {categories.map((cat) => {
@@ -259,7 +268,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     <div className="flex flex-col min-h-screen bg-[#f9f8f6] text-slate-800">
       <main className="flex-1 py-8">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          {/* Main Hero Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-stone-200">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-semibold rounded-full mb-2">
@@ -273,7 +281,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
               </p>
             </div>
 
-            {/* Right Side Column: Cart Button + Search Bar */}
             <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
               <button
                 onClick={() => setIsCartOpen(!isCartOpen)}
@@ -283,7 +290,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                 <span>Cart ({totalCartItems})</span>
               </button>
 
-              {/* Search Bar Under Cart */}
               <div className="relative w-full md:w-72">
                 <Search
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
@@ -308,14 +314,12 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           </div>
 
-          {/* MOBILE/TABLET ONLY: Cart Dropdown when open (Appears first) */}
           {isCartOpen && (
             <div className="block lg:hidden mb-6">
               <CartBox />
             </div>
           )}
 
-          {/* MOBILE/TABLET ONLY: Categories Dropdown Button */}
           <div className="block lg:hidden mb-6">
             <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm">
               <button
@@ -336,9 +340,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           </div>
 
-          {/* Main Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Main Collection Grid */}
             <div className="lg:col-span-8">
               {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -370,6 +372,8 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {filteredFlowers.map((flower) => {
                     const isSelected = selectedFlower?.id === flower.id;
+                    const isExpanded = expandedFlowerIds.includes(flower.id);
+
                     return (
                       <div
                         key={flower.id}
@@ -407,7 +411,17 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                                 {flower.stem_length || "Standard Arrangement"}
                               </span>
                             </p>
-                            <p className="text-xs text-stone-600 mt-2.5 line-clamp-2 leading-relaxed">
+                            
+                            {/* Controlled expand state without Tailwind line-clamp conflict */}
+                            <p
+                              className="text-xs text-stone-600 mt-2.5 leading-relaxed"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: isExpanded ? "unset" : 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
                               {flower.description ||
                                 "Fresh, locally harvested bouquet arrangement hand-tied for fast local delivery."}
                             </p>
@@ -430,9 +444,17 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                               </>
                             )}
                           </button>
+                          
+                          {/* Info Button trigger */}
                           <button
-                            onClick={() => setSelectedFlower(flower)}
-                            className="p-2.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50"
+                            type="button"
+                            onClick={(e) => toggleInfo(flower, e)}
+                            className={`p-2.5 rounded-xl border transition-colors ${
+                              isExpanded
+                                ? "bg-[#0f2e23] text-white border-[#0f2e23]"
+                                : "text-stone-600 border-stone-200 hover:bg-stone-100"
+                            }`}
+                            title="Toggle Full Info"
                           >
                             <Info size={16} />
                           </button>
@@ -444,12 +466,69 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
               )}
             </div>
 
-            {/* DESKTOP ONLY: Sidebar Column (Hidden on Mobile/Tablet) */}
-            <div className="hidden lg:block lg:col-span-4 sticky top-20 space-y-6">
-              {/* Dynamic Cart Dropdown Box */}
+            {/* DESKTOP SIDEBAR WITH SCROLLING SUPPORT */}
+            <div className="hidden lg:block lg:col-span-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-6 [scrollbar-width:thin] [scrollbar-color:#d6d3d1_transparent]">
               {isCartOpen && <CartBox />}
 
-              {/* Categories Navigation Section */}
+              {selectedFlower && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                      <Info size={14} className="text-[#f4a261]" /> Your Selection
+                    </h3>
+                    <span className="bg-[#0f2e23]/10 text-[#0f2e23] text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full">
+                      {selectedFlower.category}
+                    </span>
+                  </div>
+
+                  <div className="aspect-[4/3] rounded-xl overflow-hidden bg-stone-100">
+                    <img
+                      src={selectedFlower.image_url}
+                      alt={selectedFlower.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-serif font-bold text-lg text-slate-800">
+                        {selectedFlower.name}
+                      </h4>
+                      {selectedFlower.price && (
+                        <span className="text-[#0f2e23] text-sm font-bold whitespace-nowrap">
+                          KSh {Number(selectedFlower.price).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-stone-500 mt-1">
+                      Stem Specification:{" "}
+                      <span className="font-semibold text-stone-700">
+                        {selectedFlower.stem_length || "Standard Arrangement"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-stone-600 mt-3 leading-relaxed">
+                      {selectedFlower.description ||
+                        "Fresh, locally harvested bouquet arrangement hand-tied for fast local delivery."}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => addToCart(selectedFlower, e)}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all bg-[#0f2e23] hover:bg-[#194032] text-white mt-2"
+                  >
+                    {addedId === selectedFlower.id ? (
+                      <>
+                        <Check size={14} className="text-emerald-400" /> Added to Cart
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag size={14} /> Order Bouquet
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-1.5">
                   <Filter size={14} className="text-[#f4a261]" /> Categories

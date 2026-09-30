@@ -59,7 +59,7 @@ export function Footer() {
           <ul className="space-y-2 text-stone-400">
             <li>Premium Fresh Roses</li>
             <li>Summer Flowers & Greens</li>
-            <li>Chrysanthemums & Mums</li>
+            <li>Chrysanthemums & Fillers</li>
             <li>Carnations & Dianthus</li>
           </ul>
         </div>
