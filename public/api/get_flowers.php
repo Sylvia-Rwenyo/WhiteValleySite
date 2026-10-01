@@ -18,7 +18,7 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Fetch all flowers ordered by ID
-    $stmt = $conn->prepare("SELECT id, name, category, stem_length, description, image_url FROM flowers ORDER BY id DESC");
+    $stmt = $conn->prepare("SELECT id, name, category, stem_length, description, price, image_url FROM flowers ORDER BY id DESC");
     $stmt->execute();
     
     $flowers = $stmt->fetchAll(PDO::FETCH_ASSOC);
