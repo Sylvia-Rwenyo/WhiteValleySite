@@ -12,19 +12,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-
 try {
     $conn = new PDO("mysql:host=" . $host . ";dbname=" . $db_name . ";charset=utf8", $username, $password);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Fetch all flowers ordered by ID
-    $stmt = $conn->prepare("SELECT id, name, category, stem_length, description, price, image_url FROM flowers ORDER BY id DESC");
+    $stmt = $conn->prepare("SELECT id, name, category, stem_length, description, price, image_url FROM flowers ORDER BY category ASC, id DESC");
     $stmt->execute();
     
     $flowers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Return direct array for Next.js/React consumption
-    echo json_encode($flowers);
+    // Group items by category
+    $groupedFlowers = [];
+    foreach ($flowers as $flower) {
+        $category = $flower['category'] ?? 'Uncategorized';
+        $groupedFlowers[$category][] = $flower;
+    }
+
+    echo json_encode($groupedFlowers);
 
 } catch(PDOException $e) {
     http_response_code(500);

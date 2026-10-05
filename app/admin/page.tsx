@@ -34,7 +34,7 @@ interface UserAccount {
   role: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://whitevalley.co.ke/api";
+const API_BASE = "https://whitevalley.co.ke/api";
 
 export default function AdminDashboard() {
   // Auth state
