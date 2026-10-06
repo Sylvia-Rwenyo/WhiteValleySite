@@ -6,7 +6,6 @@ header("Content-Type: application/json; charset=UTF-8");
 
 require_once 'credentials.php';
 
-// Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -16,19 +15,29 @@ try {
     $conn = new PDO("mysql:host=" . $host . ";dbname=" . $db_name . ";charset=utf8", $username, $password);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $stmt = $conn->prepare("SELECT id, name, category, stem_length, description, price, image_url FROM flowers ORDER BY category ASC, id DESC");
-    $stmt->execute();
-    
-    $flowers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $type = $_GET['type'] ?? null;
+    $occasion = $_GET['occasion'] ?? null;
 
-    // Group items by category
-    $groupedFlowers = [];
-    foreach ($flowers as $flower) {
-        $category = $flower['category'] ?? 'Uncategorized';
-        $groupedFlowers[$category][] = $flower;
+    $sql = "SELECT id, name, flower_type, occasion, stem_length, description, price, image_url FROM flowers WHERE 1=1";
+    $params = [];
+
+    if ($type) {
+        $sql .= " AND flower_type = :type";
+        $params[':type'] = $type;
     }
 
-    echo json_encode($groupedFlowers);
+    if ($occasion) {
+        $sql .= " AND occasion = :occasion";
+        $params[':occasion'] = $occasion;
+    }
+
+    $sql .= " ORDER BY id DESC";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+    
+    $flowers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($flowers);
 
 } catch(PDOException $e) {
     http_response_code(500);

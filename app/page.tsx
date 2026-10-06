@@ -15,12 +15,16 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Tag,
+  Heart
 } from "lucide-react";
 
 interface Flower {
   id: number;
   name: string;
-  category: string;
+  category?: string;
+  flower_type?: string;
+  occasion?: string;
   stem_length?: string;
   description?: string;
   price?: number | string;
@@ -39,7 +43,12 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
   const [addedId, setAddedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  
+  // Dual filter states
+  const [selectedType, setSelectedType] = useState<string>("All");
+  const [selectedOccasion, setSelectedOccasion] = useState<string>("All");
+  const [activeFilterTab, setActiveFilterTab] = useState<"type" | "occasion">("type");
+
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isCategoryOpenMobile, setIsCategoryOpenMobile] = useState<boolean>(false);
 
@@ -73,7 +82,30 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     fetchFlowers();
   }, []);
 
-  const categories = ["All", ...Array.from(new Set(flowers.map((f) => f.category).filter(Boolean)))];
+  // Extract unique Types & Occasions (Splitting comma-separated values)
+  const flowerTypes = [
+    "All",
+    ...Array.from(
+      new Set(
+        flowers
+          .flatMap((f) => (f.flower_type || f.category || "").split(","))
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    ),
+  ];
+
+  const occasions = [
+    "All",
+    ...Array.from(
+      new Set(
+        flowers
+          .flatMap((f) => (f.occasion || "").split(","))
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    ),
+  ];
 
   const addToCart = (flower: Flower, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -109,15 +141,10 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Dedicated Toggle Handler for 'i' Info Button
   const toggleInfo = (flower: Flower, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Set selected for desktop detailed sidebar preview
     setSelectedFlower(flower);
-
-    // Toggle inline text view for all screen sizes
     setExpandedFlowerIds((prev) =>
       prev.includes(flower.id)
         ? prev.filter((id) => id !== flower.id)
@@ -125,18 +152,33 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     );
   };
 
+  // Combined Search, Type, and Occasion Filter
   const filteredFlowers = flowers.filter((f) => {
     const query = searchQuery.toLowerCase();
-    const nameMatch = f.name?.toLowerCase().includes(query);
-    const descMatch = f.description?.toLowerCase().includes(query);
-    const categoryMatch = f.category?.toLowerCase().includes(query);
-    const matchesSearch = nameMatch || descMatch || categoryMatch;
+    const typeVal = f.flower_type || f.category || "";
+    const occasionVal = f.occasion || "";
 
-    const matchesCategory =
-      selectedCategory === "All" ||
-      f.category?.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesSearch =
+      f.name?.toLowerCase().includes(query) ||
+      f.description?.toLowerCase().includes(query) ||
+      typeVal.toLowerCase().includes(query) ||
+      occasionVal.toLowerCase().includes(query);
 
-    return matchesSearch && matchesCategory;
+    const flowerTypesArray = typeVal
+      .split(",")
+      .map((t) => t.trim().toLowerCase());
+    const matchesType =
+      selectedType === "All" ||
+      flowerTypesArray.includes(selectedType.toLowerCase());
+
+    const flowerOccasionsArray = occasionVal
+      .split(",")
+      .map((o) => o.trim().toLowerCase());
+    const matchesOccasion =
+      selectedOccasion === "All" ||
+      flowerOccasionsArray.includes(selectedOccasion.toLowerCase());
+
+    return matchesSearch && matchesType && matchesOccasion;
   });
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -228,41 +270,95 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     </div>
   );
 
-  const CategoriesList = () => (
-    <div className="space-y-2">
-      {categories.map((cat) => {
-        const count =
-          cat === "All"
-            ? flowers.length
-            : flowers.filter((f) => f.category?.toLowerCase() === cat.toLowerCase()).length;
-        const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
+  const CategoriesList = () => {
+    const list = activeFilterTab === "type" ? flowerTypes : occasions;
+    const selectedVal = activeFilterTab === "type" ? selectedType : selectedOccasion;
 
-        return (
+    return (
+      <div className="space-y-3">
+        {/* Filter Mode Tabs */}
+        <div className="flex bg-stone-100 p-1 rounded-xl gap-1 text-[11px] font-semibold">
           <button
-            key={cat}
             onClick={() => {
-              setSelectedCategory(cat);
-              setIsCategoryOpenMobile(false);
+              setActiveFilterTab("type");
+              setSelectedOccasion("All");
             }}
-            className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-all ${
-              isActive
-                ? "bg-[#0f2e23] text-white font-semibold"
-                : "hover:bg-stone-50 text-stone-700 border border-transparent hover:border-stone-200"
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+              activeFilterTab === "type"
+                ? "bg-white text-[#0f2e23] shadow-sm"
+                : "text-stone-500 hover:text-stone-800"
             }`}
           >
-            <span>{cat}</span>
-            <span
-              className={`px-2 py-0.5 text-[10px] rounded-full ${
-                isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
-              }`}
-            >
-              {count}
-            </span>
+            <Tag size={12} /> By Type
           </button>
-        );
-      })}
-    </div>
-  );
+          <button
+            onClick={() => {
+              setActiveFilterTab("occasion");
+              setSelectedType("All");
+            }}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+              activeFilterTab === "occasion"
+                ? "bg-white text-[#0f2e23] shadow-sm"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            <Heart size={12} /> By Occasion
+          </button>
+        </div>
+
+        {/* Dynamic Category List */}
+        <div className="space-y-1.5 mt-2">
+          {list.map((item) => {
+            const count =
+              item === "All"
+                ? flowers.length
+                : flowers.filter((f) => {
+                    const field =
+                      activeFilterTab === "type"
+                        ? f.flower_type || f.category
+                        : f.occasion;
+                    const itemsArr = (field || "")
+                      .split(",")
+                      .map((val) => val.trim().toLowerCase());
+                    return itemsArr.includes(item.toLowerCase());
+                  }).length;
+
+            const isActive = selectedVal.toLowerCase() === item.toLowerCase();
+
+            return (
+              <button
+                key={item}
+                onClick={() => {
+                  if (activeFilterTab === "type") {
+                    setSelectedType(item);
+                    setSelectedOccasion("All");
+                  } else {
+                    setSelectedOccasion(item);
+                    setSelectedType("All");
+                  }
+                  setIsCategoryOpenMobile(false);
+                }}
+                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-all ${
+                  isActive
+                    ? "bg-[#0f2e23] text-white font-semibold"
+                    : "hover:bg-stone-50 text-stone-700 border border-transparent hover:border-stone-200"
+                }`}
+              >
+                <span>{item}</span>
+                <span
+                  className={`px-2 py-0.5 text-[10px] rounded-full ${
+                    isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f9f8f6] text-slate-800">
@@ -299,7 +395,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search bouquets..."
+                  placeholder="Search bouquets or occasions..."
                   className="w-full pl-10 pr-10 py-2 bg-white border border-stone-200 rounded-full text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0f2e23]/20 shadow-sm"
                 />
                 {searchQuery && (
@@ -320,6 +416,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           )}
 
+          {/* Mobile Category Dropdown */}
           <div className="block lg:hidden mb-6">
             <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm">
               <button
@@ -327,7 +424,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                 className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-stone-700"
               >
                 <span className="flex items-center gap-2">
-                  <Filter size={14} className="text-[#f4a261]" /> Categories ({selectedCategory})
+                  <Filter size={14} className="text-[#f4a261]" /> Filter Flowers
                 </span>
                 {isCategoryOpenMobile ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -356,15 +453,16 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                   <p className="text-stone-500 text-sm">
                     No flower bouquets found matching your selection.
                   </p>
-                  {(searchQuery || selectedCategory !== "All") && (
+                  {(searchQuery || selectedType !== "All" || selectedOccasion !== "All") && (
                     <button
                       onClick={() => {
                         setSearchQuery("");
-                        setSelectedCategory("All");
+                        setSelectedType("All");
+                        setSelectedOccasion("All");
                       }}
                       className="mt-3 text-xs font-semibold text-[#f4a261] underline"
                     >
-                      Clear filters
+                      Clear all filters
                     </button>
                   )}
                 </div>
@@ -373,6 +471,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                   {filteredFlowers.map((flower) => {
                     const isSelected = selectedFlower?.id === flower.id;
                     const isExpanded = expandedFlowerIds.includes(flower.id);
+                    const flowerBadge = flower.flower_type || flower.category;
 
                     return (
                       <div
@@ -391,10 +490,19 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                               alt={flower.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
-                            <span className="absolute top-3 left-3 bg-[#0f2e23]/80 backdrop-blur-md text-white text-[10px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full">
-                              {flower.category}
-                            </span>
-                            {flower.price && (
+                            <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
+                              {flowerBadge && (
+                                <span className="bg-[#0f2e23]/80 backdrop-blur-md text-white text-[10px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full">
+                                  {flowerBadge}
+                                </span>
+                              )}
+                              {flower.occasion && (
+                                <span className="bg-white/90 backdrop-blur-md text-stone-800 text-[10px] font-semibold tracking-wider uppercase px-2 py-1 rounded-full">
+                                  {flower.occasion}
+                                </span>
+                              )}
+                            </div>
+                            {Number(flower.price) > 0 && (
                               <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md text-[#0f2e23] text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
                                 KSh {Number(flower.price).toLocaleString()}
                               </span>
@@ -411,8 +519,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                                 {flower.stem_length || "Standard Arrangement"}
                               </span>
                             </p>
-                            
-                            {/* Controlled expand state without Tailwind line-clamp conflict */}
+
                             <p
                               className="text-xs text-stone-600 mt-2.5 leading-relaxed"
                               style={{
@@ -444,8 +551,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                               </>
                             )}
                           </button>
-                          
-                          {/* Info Button trigger */}
+
                           <button
                             type="button"
                             onClick={(e) => toggleInfo(flower, e)}
@@ -466,72 +572,13 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
               )}
             </div>
 
-            {/* DESKTOP SIDEBAR WITH SCROLLING SUPPORT */}
+            {/* Desktop Sidebar */}
             <div className="hidden lg:block lg:col-span-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-6 [scrollbar-width:thin] [scrollbar-color:#d6d3d1_transparent]">
               {isCartOpen && <CartBox />}
 
-              {selectedFlower && (
-                <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-                      <Info size={14} className="text-[#f4a261]" /> Your Selection
-                    </h3>
-                    <span className="bg-[#0f2e23]/10 text-[#0f2e23] text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full">
-                      {selectedFlower.category}
-                    </span>
-                  </div>
-
-                  <div className="aspect-[4/3] rounded-xl overflow-hidden bg-stone-100">
-                    <img
-                      src={selectedFlower.image_url}
-                      alt={selectedFlower.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-serif font-bold text-lg text-slate-800">
-                        {selectedFlower.name}
-                      </h4>
-                      {selectedFlower.price && (
-                        <span className="text-[#0f2e23] text-sm font-bold whitespace-nowrap">
-                          KSh {Number(selectedFlower.price).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-stone-500 mt-1">
-                      Stem Specification:{" "}
-                      <span className="font-semibold text-stone-700">
-                        {selectedFlower.stem_length || "Standard Arrangement"}
-                      </span>
-                    </p>
-                    <p className="text-xs text-stone-600 mt-3 leading-relaxed">
-                      {selectedFlower.description ||
-                        "Fresh, locally harvested bouquet arrangement hand-tied for fast local delivery."}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={(e) => addToCart(selectedFlower, e)}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all bg-[#0f2e23] hover:bg-[#194032] text-white mt-2"
-                  >
-                    {addedId === selectedFlower.id ? (
-                      <>
-                        <Check size={14} className="text-emerald-400" /> Added to Cart
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag size={14} /> Order Bouquet
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
               <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-1.5">
-                  <Filter size={14} className="text-[#f4a261]" /> Categories
+                  <Filter size={14} className="text-[#f4a261]" /> Filter Catalog
                 </h3>
                 <CategoriesList />
               </div>
