@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShoppingBag, MapPin, Phone, Menu } from "lucide-react";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname(); // Get current route path
+
+  // Helper function to check if a link is active
+  const isActive = (path: string) => pathname === path;
 
   return (
     <header className="bg-[#0f2e23] text-white sticky top-0 z-50 shadow-md">
@@ -24,10 +29,20 @@ export function Header() {
 
         {/* Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-200">
-          <Link href="/" className="text-[#f4a261] font-semibold">
+          <Link
+            href="/"
+            className={`transition-colors ${
+              isActive("/") ? "text-[#f4a261] font-semibold" : "hover:text-[#f4a261]"
+            }`}
+          >
             Home
           </Link>
-          <Link href="/export" className="hover:text-[#f4a261]  transition-colors">
+          <Link
+            href="/export"
+            className={`transition-colors ${
+              isActive("/export") ? "text-[#f4a261] font-semibold" : "hover:text-[#f4a261]"
+            }`}
+          >
             Export Collections
           </Link>
           <Link href="#about" className="hover:text-[#f4a261] transition-colors">
@@ -71,16 +86,36 @@ export function Header() {
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-[#194032] px-4 py-4 space-y-3 border-t border-[#255745] text-sm">
-          <Link href="/" className="block text-[#f4a261] font-semibold ">
+          <Link
+            href="/"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block ${
+              isActive("/") ? "text-[#f4a261] font-semibold" : "text-stone-300"
+            }`}
+          >
             Home
           </Link>
-          <Link href="/export" className="block text-white  font-medium">
-            Export
+          <Link
+            href="/export"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block ${
+              isActive("/export") ? "text-[#f4a261] font-semibold" : "text-stone-300"
+            }`}
+          >
+            Export Collections
           </Link>
-          <Link href="#about" className="block text-stone-300">
+          <Link
+            href="#about"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-stone-300"
+          >
             About
           </Link>
-          <Link href="#contact" className="block text-stone-300">
+          <Link
+            href="#contact"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-stone-300"
+          >
             Contact
           </Link>
 
