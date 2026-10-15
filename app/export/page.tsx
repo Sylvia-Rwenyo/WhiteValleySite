@@ -7,16 +7,9 @@ import {
   Info,
   Search,
   X,
-  Truck,
-  MessageCircle,
-  Plus,
-  Minus,
-  Trash2,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  Tag
+  Truck
 } from "lucide-react";
+import { getStoredCart, saveStoredCart, CartItem } from "@/components/cart";
 
 interface Flower {
   id: number;
@@ -29,26 +22,14 @@ interface Flower {
   image_url: string;
 }
 
-interface CartItem extends Flower {
-  quantity: number;
-}
-
-export default function Home({ cartCount = 0 }: { cartCount?: number }) {
+export default function ExportPage() {
   const [flowers, setFlowers] = useState<Flower[]>([]);
   const [selectedFlower, setSelectedFlower] = useState<Flower | null>(null);
   const [expandedFlowerIds, setExpandedFlowerIds] = useState<number[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [addedId, setAddedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Filter state for export collection types (defaulting to empty so individual tags control it)
   const [selectedType, setSelectedType] = useState<string>("");
-
-  const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [isCategoryOpenMobile, setIsCategoryOpenMobile] = useState<boolean>(false);
-
-  const WHATSAPP_PHONE = "+254723105303";
 
   useEffect(() => {
     async function fetchExportCollection() {
@@ -69,18 +50,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
           setFlowers(data);
           if (data.length > 0) {
             setSelectedFlower(data[0]);
-            // Automatically set initial selectedType to the first available category tag
-            const types = Array.from(
-              new Set(
-                data
-                  .flatMap((f: Flower) => (f.flower_type || f.category || "").split(","))
-                  .map((item: string) => item.trim())
-                  .filter(Boolean)
-              )
-            );
-            if (types.length > 0 && !selectedType) {
-              setSelectedType(types[0] as string);
-            }
           }
         }
       } catch (err) {
@@ -92,48 +61,46 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     fetchExportCollection();
   }, []);
 
-  // Extract unique Flower Types (Individual categories only, no "All")
-  const flowerTypes = Array.from(
-    new Set(
-      flowers
-        .flatMap((f) => (f.flower_type || f.category || "").split(","))
-        .map((item) => item.trim())
-        .filter(Boolean)
-    )
+  const typeCounts: { [key: string]: number } = {};
+  flowers.forEach((f) => {
+    const types = (f.flower_type || f.category || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    types.forEach((t) => {
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+  });
+
+  const flowerTypes = Object.keys(typeCounts).sort(
+    (a, b) => typeCounts[b] - typeCounts[a]
   );
+
+  useEffect(() => {
+    if (flowerTypes.length > 0 && !selectedType) {
+      setSelectedType(flowerTypes[0]);
+    }
+  }, [flowerTypes, selectedType]);
 
   const addToCart = (flower: Flower, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === flower.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === flower.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { ...flower, quantity: 1 }];
-    });
+    
+    const currentCart = getStoredCart();
+    const existing = currentCart.find((item) => item.id === flower.id);
+    
+    let updatedCart: CartItem[];
+    if (existing) {
+      updatedCart = currentCart.map((item) =>
+        item.id === flower.id ? { ...item, quantity: item.quantity + 1 } : item
+      );
+    } else {
+      updatedCart = [...currentCart, { ...flower, quantity: 1, collectionType: "export" }];
+    }
+
+    saveStoredCart(updatedCart);
 
     setAddedId(flower.id);
     setTimeout(() => setAddedId(null), 1500);
-  };
-
-  const updateQuantity = (id: number, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.id === id) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
-    );
-  };
-
-  const removeFromCart = (id: number) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
   const toggleInfo = (flower: Flower, e: React.MouseEvent) => {
@@ -147,7 +114,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     );
   };
 
-  // Combined Search and Type Filter
   const filteredFlowers = flowers.filter((f) => {
     const query = searchQuery.toLowerCase();
     const typeVal = f.flower_type || f.category || "";
@@ -167,133 +133,11 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     return matchesSearch && matchesType;
   });
 
-  const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-  const handleWhatsAppOrder = () => {
-    if (cart.length === 0) return;
-
-    let message = `Hello! I would like to inquire about wholesale ordering from your Export Collection:\n\n`;
-    cart.forEach((item, index) => {
-      message += `${index + 1}. ${item.name} - Quantity: ${item.quantity}\n`;
-    });
-
-    message += `\nPlease let me know the availability, wholesale pricing, and shipping/export procedures. Thank you!`;
-
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`, "_blank");
-  };
-
-  const CategoriesList = () => (
-    <div className="space-y-3">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1">
-        <Tag size={12} /> Filter by Flower Type
-      </div>
-      <div className="space-y-1.5 mt-2">
-        {flowerTypes.map((item) => {
-          const count = flowers.filter((f) => {
-            const field = f.flower_type || f.category;
-            const itemsArr = (field || "")
-              .split(",")
-              .map((val) => val.trim().toLowerCase());
-            return itemsArr.includes(item.toLowerCase());
-          }).length;
-
-          const isActive = selectedType.toLowerCase() === item.toLowerCase();
-
-          return (
-            <button
-              key={item}
-              onClick={() => {
-                setSelectedType(item);
-                setIsCategoryOpenMobile(false);
-              }}
-              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-[#0f2e23] text-white font-semibold"
-                  : "hover:bg-stone-50 text-stone-700 border border-transparent hover:border-stone-200"
-              }`}
-            >
-              <span>{item}</span>
-              <span
-                className={`px-2 py-0.5 text-[10px] rounded-full ${
-                  isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const CartBox = () => (
-    <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
-      <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-4 flex items-center gap-2">
-        <ShoppingBag size={15} className="text-[#f4a261]" /> Your Order
-      </h3>
-      {cart.length === 0 ? (
-        <p className="text-sm text-stone-500">Your cart is empty.</p>
-      ) : (
-        <>
-          <div className="space-y-4">
-            {cart.map((item) => (
-              <div key={item.id} className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-stone-800 truncate">{item.name}</p>
-                  {Number(item.price) > 0 && (
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      KSh {Number(item.price).toLocaleString()} each
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.id, -1)}
-                      aria-label={`Decrease ${item.name} quantity`}
-                      className="p-1 rounded-md border border-stone-200 text-stone-600 hover:bg-stone-50"
-                    >
-                      <Minus size={13} />
-                    </button>
-                    <span className="text-xs font-semibold min-w-4 text-center">{item.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.id, 1)}
-                      aria-label={`Increase ${item.name} quantity`}
-                      className="p-1 rounded-md border border-stone-200 text-stone-600 hover:bg-stone-50"
-                    >
-                      <Plus size={13} />
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeFromCart(item.id)}
-                  aria-label={`Remove ${item.name} from cart`}
-                  className="p-1 text-stone-400 hover:text-red-600"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={handleWhatsAppOrder}
-            className="w-full mt-5 flex items-center justify-center gap-2 rounded-xl bg-[#0f2e23] hover:bg-[#194032] text-white py-2.5 text-sm font-semibold transition-colors"
-          >
-            <MessageCircle size={16} /> Order via WhatsApp
-          </button>
-        </>
-      )}
-    </div>
-  );
-
   return (
     <div className="flex flex-col min-h-screen bg-[#f9f8f6] text-slate-800">
       <main className="flex-1 py-8">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
+          
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-stone-200">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-semibold rounded-full mb-2">
@@ -308,14 +152,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
 
             <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
-              <button
-                onClick={() => setIsCartOpen(!isCartOpen)}
-                className="flex items-center gap-2 bg-[#0f2e23] hover:bg-[#194032] text-white px-5 py-2.5 rounded-full shadow-sm text-sm font-medium transition-colors"
-              >
-                <ShoppingBag size={18} className="text-[#f4a261]" />
-                <span>Cart ({totalCartItems})</span>
-              </button>
-
               <div className="relative w-full md:w-72">
                 <Search
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
@@ -340,165 +176,153 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           </div>
 
-          {isCartOpen && (
-            <div className="block lg:hidden mb-6">
-              <CartBox />
-            </div>
-          )}
-
-
-          {/* Horizontal Category Tags Bar at the Top */}
-          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mb-8 flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {flowerTypes.map((type) => {
               const isSelected = selectedType.toLowerCase() === type.toLowerCase();
+              const count = typeCounts[type];
               return (
                 <button
                   key={type}
                   onClick={() => setSelectedType(type)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-sm flex items-center gap-2 ${
                     isSelected
                       ? "bg-[#0f2e23] text-white shadow-md ring-2 ring-[#0f2e23]/20"
                       : "bg-white text-stone-700 border border-stone-200 hover:border-stone-300 hover:bg-stone-50"
                   }`}
                 >
-                  {type}
+                  <span>{type}</span>
+                  <span className={`px-1.5 py-0.2 text-[10px] rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"}`}>
+                    {count}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-8">
-              {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4].map((n) => (
+          <div className="w-full">
+            {loading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <div
+                    key={n}
+                    className="h-52 bg-stone-200 animate-pulse rounded-lg"
+                  />
+                ))}
+              </div>
+            ) : filteredFlowers.length === 0 ? (
+              <div className="p-12 text-center bg-white rounded-xl border border-stone-200">
+                <p className="text-stone-500 text-xs">
+                  No export items found matching your selection.
+                </p>
+                {(searchQuery || selectedType) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      if (flowerTypes.length > 0) setSelectedType(flowerTypes[0]);
+                    }}
+                    className="mt-3 text-xs font-semibold text-[#f4a261] underline"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {filteredFlowers.map((flower) => {
+                  const isSelected = selectedFlower?.id === flower.id;
+                  const isExpanded = expandedFlowerIds.includes(flower.id);
+                  
+                  const typeStr = (flower.flower_type || flower.category || "").toLowerCase();
+                  const nameStr = (flower.name || "").toLowerCase();
+                  const isPaddedFlower = typeStr.includes("carnation") || typeStr.includes("limonium") || nameStr.includes("carnation") || nameStr.includes("limonium");
+
+                  return (
                     <div
-                      key={n}
-                      className="h-64 bg-stone-200 animate-pulse rounded-2xl"
-                    />
-                  ))}
-                </div>
-              ) : filteredFlowers.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-2xl border border-stone-200">
-                  <p className="text-stone-500 text-sm">
-                    No export items found matching your selection.
-                  </p>
-                  {(searchQuery || selectedType) && (
-                    <button
-                      onClick={() => {
-                        setSearchQuery("");
-                        if (flowerTypes.length > 0) setSelectedType(flowerTypes[0]);
-                      }}
-                      className="mt-3 text-xs font-semibold text-[#f4a261] underline"
+                      key={flower.id}
+                      onClick={() => setSelectedFlower(flower)}
+                      className={`group cursor-pointer bg-white rounded-lg border transition-all duration-300 overflow-hidden flex flex-col justify-between ${
+                        isSelected
+                          ? "border-[#f4a261] ring-2 ring-[#f4a261]/20 shadow-md"
+                          : "border-stone-200 hover:border-stone-300 hover:shadow-sm"
+                      }`}
                     >
-                      Clear all filters
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filteredFlowers.map((flower) => {
-                    const isSelected = selectedFlower?.id === flower.id;
-                    const isExpanded = expandedFlowerIds.includes(flower.id);
-                    const flowerBadge = flower.flower_type || flower.category;
-
-                    return (
-                      <div
-                        key={flower.id}
-                        onClick={() => setSelectedFlower(flower)}
-                        className={`group cursor-pointer bg-white rounded-xl border transition-all duration-300 overflow-hidden flex flex-col justify-between ${
-                          isSelected
-                            ? "border-[#f4a261] ring-2 ring-[#f4a261]/20 shadow-lg"
-                            : "border-stone-200 hover:border-stone-300 hover:shadow-md"
-                        }`}
-                      >
-                        <div>
-                          {/* Adjusted aspect ratio for sharper, clean framing */}
-                          <div className="relative aspect-[16/11] overflow-hidden bg-stone-100">
-                            <img
-                              src={flower.image_url}
-                              alt={flower.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                            <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                              {flowerBadge && (
-                                <span className="bg-[#0f2e23]/80 backdrop-blur-md text-white text-[9px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full">
-                                  {flowerBadge}
-                                </span>
-                              )}
-                            </div>
-                            {Number(flower.price) > 0 && (
-                              <span className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-md text-[#0f2e23] text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm">
-                                KSh {Number(flower.price).toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Compact padding so text doesn't feel squished */}
-                          <div className="p-3.5">
-                            <h3 className="font-serif font-bold text-sm text-slate-800 line-clamp-1">
-                              {flower.name}
-                            </h3>
-                            <p className="text-[11px] text-stone-500 mt-0.5">
-                              Stem:{" "}
-                              <span className="font-semibold text-stone-700">
-                                {flower.stem_length || "Standard"}
-                              </span>
-                            </p>
-
-                            <p
-                              className="text-[11px] text-stone-600 mt-2 leading-relaxed"
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: isExpanded ? "unset" : 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {flower.description ||
-                                "High-grade export flowers packaged for transport."}
-                            </p>
-                          </div>
+                      <div>
+                        <div className={`relative aspect-square overflow-hidden bg-white flex items-center justify-center ${isPaddedFlower ? "p-3 bg-white" : "bg-stone-100"}`}>
+                          <img
+                            src={flower.image_url}
+                            alt={flower.name}
+                            loading="lazy"
+                            className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${isPaddedFlower ? "object-contain" : "object-cover"}`}
+                          />
+                          {Number(flower.price) > 0 && (
+                            <span className="absolute bottom-1.5 right-1.5 bg-white/95 backdrop-blur-md text-[#0f2e23] text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-stone-100">
+                              KSh {Number(flower.price).toLocaleString()}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="p-3.5 pt-0 flex items-center justify-between gap-2 mt-1">
-                          <button
-                            onClick={(e) => addToCart(flower, e)}
-                            className="flex-1 py-2 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all bg-[#0f2e23] hover:bg-[#194032] text-white"
-                          >
-                            {addedId === flower.id ? (
-                              <>
-                                <Check size={13} className="text-emerald-400" />{" "}
-                                Added
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingBag size={13} /> Order
-                              </>
-                            )}
-                          </button>
+                        <div className="p-2.5 pt-1.5">
+                          <h3 className="font-serif font-bold text-[11px] text-[#0f2e23] leading-tight line-clamp-1">
+                            {flower.name}
+                          </h3>
+                          <p className="text-[10px] text-stone-500 mt-0.5">
+                            Stem:{" "}
+                            <span className="font-semibold text-stone-700">
+                              {flower.stem_length || "Standard"}
+                            </span>
+                          </p>
 
-                          <button
-                            type="button"
-                            onClick={(e) => toggleInfo(flower, e)}
-                            className={`p-2 rounded-lg border transition-colors ${
-                              isExpanded
-                                ? "bg-[#0f2e23] text-white border-[#0f2e23]"
-                                : "text-stone-600 border-stone-200 hover:bg-stone-100"
-                            }`}
-                            title="Toggle Full Info"
+                          <p
+                            className="text-[10px] text-stone-600 mt-1 leading-relaxed"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: isExpanded ? "unset" : 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
                           >
-                            <Info size={14} />
-                          </button>
+                            {flower.description ||
+                              "High-grade export flowers packaged for transport."}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
+                      <div className="p-2.5 pt-0 flex items-center justify-between gap-1.5 mt-1">
+                        <button
+                          onClick={(e) => addToCart(flower, e)}
+                          className="flex-1 py-1.5 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all bg-[#0f2e23] hover:bg-[#194032] text-white"
+                        >
+                          {addedId === flower.id ? (
+                            <>
+                              <Check size={11} className="text-emerald-400" /> Added
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag size={11} /> Order
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => toggleInfo(flower, e)}
+                          className={`p-1.5 rounded-md border transition-colors ${
+                            isExpanded
+                              ? "bg-[#0f2e23] text-white border-[#0f2e23]"
+                              : "text-stone-600 border-stone-200 hover:bg-stone-100"
+                          }`}
+                          title="Toggle Full Info"
+                        >
+                          <Info size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </div>
       </main>
     </div>

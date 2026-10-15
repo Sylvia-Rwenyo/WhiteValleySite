@@ -34,18 +34,21 @@ export function Footer() {
               </Link>
             </li>
             <li>
+              <Link href="/localpage" className="hover:text-[#f4a261] transition-colors">
+                Local Collections
+              </Link>
+            </li>
+            <li>
               <Link href="/export" className="hover:text-[#f4a261] transition-colors">
                 Export Collection
               </Link>
             </li>
             <li>
-              <Link href="#about" className="hover:text-[#f4a261] transition-colors">
-                About Us
-              </Link>
-            </li>
-            <li>
-              <Link href="#contact" className="hover:text-[#f4a261] transition-colors">
-                Contact
+              <Link 
+              href="https://www.google.com/maps/place/White+Valley+Florists/@-1.2806554,36.816033,16.79z/data=!4m6!3m5!1s0x182f116043dc1c79:0x98c7f4ef87505071!8m2!3d-1.2808115!4d36.8184125!16s%2Fg%2F11schlbs02?entry=ttu&g_ep=EgoyMDI2MTAxMi4wIKXMDSoASAFQAw%3D%3D"
+              target="_blank"
+              rel="noopener noreferrer"className="hover:text-[#f4a261] transition-colors">
+                Get Directions
               </Link>
             </li>
           </ul>
