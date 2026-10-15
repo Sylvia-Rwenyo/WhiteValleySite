@@ -44,8 +44,8 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Dual filter states
-  const [selectedType, setSelectedType] = useState<string>("All");
+  // Dual filter states (initialized to empty or first type once fetched)
+  const [selectedType, setSelectedType] = useState<string>("");
   const [selectedOccasion, setSelectedOccasion] = useState<string>("All");
   const [activeFilterTab, setActiveFilterTab] = useState<"type" | "occasion">("type");
 
@@ -71,7 +71,21 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setFlowers(data);
-          if (data.length > 0) setSelectedFlower(data[0]);
+          if (data.length > 0) {
+            setSelectedFlower(data[0]);
+            // Automatically set initial selectedType to the first available category tag
+            const types = Array.from(
+              new Set(
+                data
+                  .flatMap((f: Flower) => (f.flower_type || f.category || "").split(","))
+                  .map((item: string) => item.trim())
+                  .filter(Boolean)
+              )
+            );
+            if (types.length > 0 && !selectedType) {
+              setSelectedType(types[0] as string);
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching flowers from MySQL:", err);
@@ -82,18 +96,15 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     fetchFlowers();
   }, []);
 
-  // Extract unique Types & Occasions (Splitting comma-separated values)
-  const flowerTypes = [
-    "All",
-    ...Array.from(
-      new Set(
-        flowers
-          .flatMap((f) => (f.flower_type || f.category || "").split(","))
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    ),
-  ];
+  // Extract unique Types & Occasions (Individual categories only, no "All")
+  const flowerTypes = Array.from(
+    new Set(
+      flowers
+        .flatMap((f) => (f.flower_type || f.category || "").split(","))
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
 
   const occasions = [
     "All",
@@ -168,7 +179,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
       .split(",")
       .map((t) => t.trim().toLowerCase());
     const matchesType =
-      selectedType === "All" ||
+      !selectedType ||
       flowerTypesArray.includes(selectedType.toLowerCase());
 
     const flowerOccasionsArray = occasionVal
@@ -282,6 +293,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             onClick={() => {
               setActiveFilterTab("type");
               setSelectedOccasion("All");
+              if (flowerTypes.length > 0 && !selectedType) setSelectedType(flowerTypes[0]);
             }}
             className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
               activeFilterTab === "type"
@@ -294,7 +306,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
           <button
             onClick={() => {
               setActiveFilterTab("occasion");
-              setSelectedType("All");
+              setSelectedType("");
             }}
             className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
               activeFilterTab === "occasion"
@@ -310,7 +322,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
         <div className="space-y-1.5 mt-2">
           {list.map((item) => {
             const count =
-              item === "All"
+              activeFilterTab === "occasion" && item === "All"
                 ? flowers.length
                 : flowers.filter((f) => {
                     const field =
@@ -334,7 +346,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                     setSelectedOccasion("All");
                   } else {
                     setSelectedOccasion(item);
-                    setSelectedType("All");
+                    setSelectedType("");
                   }
                   setIsCategoryOpenMobile(false);
                 }}
@@ -416,25 +428,28 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           )}
 
-          {/* Mobile Category Dropdown */}
-          <div className="block lg:hidden mb-6">
-            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm">
-              <button
-                onClick={() => setIsCategoryOpenMobile(!isCategoryOpenMobile)}
-                className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-stone-700"
-              >
-                <span className="flex items-center gap-2">
-                  <Filter size={14} className="text-[#f4a261]" /> Filter Flowers
-                </span>
-                {isCategoryOpenMobile ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-
-              {isCategoryOpenMobile && (
-                <div className="mt-4 pt-4 border-t border-stone-100">
-                  <CategoriesList />
-                </div>
-              )}
-            </div>
+          {/* Horizontal Category Tags Bar at the Top */}
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {flowerTypes.map((type) => {
+              const isSelected = selectedType.toLowerCase() === type.toLowerCase();
+              return (
+                <button
+                  key={type}
+                  onClick={() => {
+                    setSelectedType(type);
+                    setSelectedOccasion("All");
+                    setActiveFilterTab("type");
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${
+                    isSelected
+                      ? "bg-[#0f2e23] text-white shadow-md ring-2 ring-[#0f2e23]/20"
+                      : "bg-white text-stone-700 border border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                  }`}
+                >
+                  {type}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -453,11 +468,11 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                   <p className="text-stone-500 text-sm">
                     No flower bouquets found matching your selection.
                   </p>
-                  {(searchQuery || selectedType !== "All" || selectedOccasion !== "All") && (
+                  {(searchQuery || selectedType || selectedOccasion !== "All") && (
                     <button
                       onClick={() => {
                         setSearchQuery("");
-                        setSelectedType("All");
+                        if (flowerTypes.length > 0) setSelectedType(flowerTypes[0]);
                         setSelectedOccasion("All");
                       }}
                       className="mt-3 text-xs font-semibold text-[#f4a261] underline"
@@ -572,17 +587,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
               )}
             </div>
 
-            {/* Desktop Sidebar */}
-            <div className="hidden lg:block lg:col-span-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-6 [scrollbar-width:thin] [scrollbar-color:#d6d3d1_transparent]">
-              {isCartOpen && <CartBox />}
-
-              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-1.5">
-                  <Filter size={14} className="text-[#f4a261]" /> Filter Catalog
-                </h3>
-                <CategoriesList />
-              </div>
-            </div>
           </div>
         </div>
       </main>

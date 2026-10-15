@@ -42,8 +42,8 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Filter state for export collection types
-  const [selectedType, setSelectedType] = useState<string>("All");
+  // Filter state for export collection types (defaulting to empty so individual tags control it)
+  const [selectedType, setSelectedType] = useState<string>("");
 
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isCategoryOpenMobile, setIsCategoryOpenMobile] = useState<boolean>(false);
@@ -67,7 +67,21 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setFlowers(data);
-          if (data.length > 0) setSelectedFlower(data[0]);
+          if (data.length > 0) {
+            setSelectedFlower(data[0]);
+            // Automatically set initial selectedType to the first available category tag
+            const types = Array.from(
+              new Set(
+                data
+                  .flatMap((f: Flower) => (f.flower_type || f.category || "").split(","))
+                  .map((item: string) => item.trim())
+                  .filter(Boolean)
+              )
+            );
+            if (types.length > 0 && !selectedType) {
+              setSelectedType(types[0] as string);
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching export collection from MySQL:", err);
@@ -78,18 +92,15 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     fetchExportCollection();
   }, []);
 
-  // Extract unique Flower Types (Splitting comma-separated values)
-  const flowerTypes = [
-    "All",
-    ...Array.from(
-      new Set(
-        flowers
-          .flatMap((f) => (f.flower_type || f.category || "").split(","))
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    ),
-  ];
+  // Extract unique Flower Types (Individual categories only, no "All")
+  const flowerTypes = Array.from(
+    new Set(
+      flowers
+        .flatMap((f) => (f.flower_type || f.category || "").split(","))
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
 
   const addToCart = (flower: Flower, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -150,7 +161,7 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
       .split(",")
       .map((t) => t.trim().toLowerCase());
     const matchesType =
-      selectedType === "All" ||
+      !selectedType ||
       flowerTypesArray.includes(selectedType.toLowerCase());
 
     return matchesSearch && matchesType;
@@ -172,79 +183,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
     window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`, "_blank");
   };
 
-  const CartBox = () => (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-md transition-all">
-      <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
-        <h3 className="text-sm font-bold text-[#0f2e23] flex items-center gap-2">
-          <ShoppingBag size={16} className="text-[#f4a261]" /> Your Wholesale Basket
-        </h3>
-        <button
-          onClick={() => setIsCartOpen(false)}
-          className="p-1 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
-          title="Close Cart"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      {cart.length === 0 ? (
-        <p className="text-xs text-stone-500 py-4 text-center">
-          Your cart is currently empty.
-        </p>
-      ) : (
-        <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-          {cart.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between gap-3 border-b border-stone-100 pb-3"
-            >
-              <img
-                src={item.image_url}
-                alt={item.name}
-                className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-semibold text-slate-800 truncate">
-                  {item.name}
-                </h4>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => updateQuantity(item.id, -1)}
-                  className="p-1 bg-stone-100 rounded hover:bg-stone-200 text-stone-700"
-                >
-                  <Minus size={12} />
-                </button>
-                <span className="text-xs font-bold w-4 text-center">
-                  {item.quantity}
-                </span>
-                <button
-                  onClick={() => updateQuantity(item.id, 1)}
-                  className="p-1 bg-stone-100 rounded hover:bg-stone-200 text-stone-700"
-                >
-                  <Plus size={12} />
-                </button>
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="p-1 text-rose-500 hover:bg-rose-50 rounded ml-1"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <button
-            onClick={handleWhatsAppOrder}
-            className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
-          >
-            <MessageCircle size={16} /> Inquire & Order via WhatsApp
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
   const CategoriesList = () => (
     <div className="space-y-3">
       <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1">
@@ -252,16 +190,13 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
       </div>
       <div className="space-y-1.5 mt-2">
         {flowerTypes.map((item) => {
-          const count =
-            item === "All"
-              ? flowers.length
-              : flowers.filter((f) => {
-                  const field = f.flower_type || f.category;
-                  const itemsArr = (field || "")
-                    .split(",")
-                    .map((val) => val.trim().toLowerCase());
-                  return itemsArr.includes(item.toLowerCase());
-                }).length;
+          const count = flowers.filter((f) => {
+            const field = f.flower_type || f.category;
+            const itemsArr = (field || "")
+              .split(",")
+              .map((val) => val.trim().toLowerCase());
+            return itemsArr.includes(item.toLowerCase());
+          }).length;
 
           const isActive = selectedType.toLowerCase() === item.toLowerCase();
 
@@ -290,6 +225,68 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
           );
         })}
       </div>
+    </div>
+  );
+
+  const CartBox = () => (
+    <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-4 flex items-center gap-2">
+        <ShoppingBag size={15} className="text-[#f4a261]" /> Your Order
+      </h3>
+      {cart.length === 0 ? (
+        <p className="text-sm text-stone-500">Your cart is empty.</p>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {cart.map((item) => (
+              <div key={item.id} className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-800 truncate">{item.name}</p>
+                  {Number(item.price) > 0 && (
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      KSh {Number(item.price).toLocaleString()} each
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, -1)}
+                      aria-label={`Decrease ${item.name} quantity`}
+                      className="p-1 rounded-md border border-stone-200 text-stone-600 hover:bg-stone-50"
+                    >
+                      <Minus size={13} />
+                    </button>
+                    <span className="text-xs font-semibold min-w-4 text-center">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, 1)}
+                      aria-label={`Increase ${item.name} quantity`}
+                      className="p-1 rounded-md border border-stone-200 text-stone-600 hover:bg-stone-50"
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFromCart(item.id)}
+                  aria-label={`Remove ${item.name} from cart`}
+                  className="p-1 text-stone-400 hover:text-red-600"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleWhatsAppOrder}
+            className="w-full mt-5 flex items-center justify-center gap-2 rounded-xl bg-[#0f2e23] hover:bg-[#194032] text-white py-2.5 text-sm font-semibold transition-colors"
+          >
+            <MessageCircle size={16} /> Order via WhatsApp
+          </button>
+        </>
+      )}
     </div>
   );
 
@@ -349,25 +346,25 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
             </div>
           )}
 
-          {/* Mobile Category Dropdown */}
-          <div className="block lg:hidden mb-6">
-            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm">
-              <button
-                onClick={() => setIsCategoryOpenMobile(!isCategoryOpenMobile)}
-                className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-stone-700"
-              >
-                <span className="flex items-center gap-2">
-                  <Filter size={14} className="text-[#f4a261]" /> Filter Collection
-                </span>
-                {isCategoryOpenMobile ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
 
-              {isCategoryOpenMobile && (
-                <div className="mt-4 pt-4 border-t border-stone-100">
-                  <CategoriesList />
-                </div>
-              )}
-            </div>
+          {/* Horizontal Category Tags Bar at the Top */}
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {flowerTypes.map((type) => {
+              const isSelected = selectedType.toLowerCase() === type.toLowerCase();
+              return (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(type)}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${
+                    isSelected
+                      ? "bg-[#0f2e23] text-white shadow-md ring-2 ring-[#0f2e23]/20"
+                      : "bg-white text-stone-700 border border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                  }`}
+                >
+                  {type}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -386,11 +383,11 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
                   <p className="text-stone-500 text-sm">
                     No export items found matching your selection.
                   </p>
-                  {(searchQuery || selectedType !== "All") && (
+                  {(searchQuery || selectedType) && (
                     <button
                       onClick={() => {
                         setSearchQuery("");
-                        setSelectedType("All");
+                        if (flowerTypes.length > 0) setSelectedType(flowerTypes[0]);
                       }}
                       className="mt-3 text-xs font-semibold text-[#f4a261] underline"
                     >
@@ -501,17 +498,6 @@ export default function Home({ cartCount = 0 }: { cartCount?: number }) {
               )}
             </div>
 
-            {/* Desktop Sidebar */}
-            <div className="hidden lg:block lg:col-span-4 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-6 [scrollbar-width:thin] [scrollbar-color:#d6d3d1_transparent]">
-              {isCartOpen && <CartBox />}
-
-              <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-1.5">
-                  <Filter size={14} className="text-[#f4a261]" /> Filter Collection
-                </h3>
-                <CategoriesList />
-              </div>
-            </div>
           </div>
         </div>
       </main>
