@@ -66,16 +66,14 @@ export function Header() {
           >
             Export Collections
           </Link>
-           <Link
+          <Link
             href="https://www.google.com/maps/place/White+Valley+Florists/@-1.2806554,36.816033,16.79z/data=!4m6!3m5!1s0x182f116043dc1c79:0x98c7f4ef87505071!8m2!3d-1.2808115!4d36.8184125!16s%2Fg%2F11schlbs02?entry=ttu&g_ep=EgoyMDI2MTAxMi4wIKXMDSoASAFQAw%3D%3D"
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => setMobileMenuOpen(false)}
-            className={`block ${isActive("/export") ? "text-[#f4a261] font-semibold" : "text-stone-300"}`}
+            className="text-stone-200 hover:text-[#f4a261] transition-colors"
           >
             Get Directions
           </Link>
-
         </nav>
 
         {/* Contact Info & Cart Button */}
@@ -147,7 +145,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setMobileMenuOpen(false)}
-            className={`block ${isActive("/export") ? "text-[#f4a261] font-semibold" : "text-stone-300"}`}
+            className="block text-stone-300 hover:text-[#f4a261] transition-colors"
           >
             Get Directions
           </Link>
